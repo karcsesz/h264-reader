@@ -8,7 +8,7 @@ use crate::rbsp::BitReaderError;
 use crate::Context;
 
 #[derive(Debug, PartialEq)]
-enum SliceFamily {
+pub enum SliceFamily {
     P,
     B,
     I,
@@ -16,14 +16,14 @@ enum SliceFamily {
     SI,
 }
 #[derive(Debug, PartialEq)]
-enum SliceExclusive {
+pub enum SliceExclusive {
     /// All slices in the picture have the same type
     Exclusive,
     /// Other slices in the picture may have a different type than the current slice
     NonExclusive,
 }
 #[derive(Debug, PartialEq)]
-struct SliceType {
+pub struct SliceType {
     family: SliceFamily,
     exclusive: SliceExclusive,
 }
@@ -73,6 +73,20 @@ impl SliceType {
             _ => Err(SliceHeaderError::InvalidSliceType(id)),
         }
     }
+    pub fn id(&self) -> u8 {
+        match (&self.exclusive, &self.family) {
+            (SliceExclusive::NonExclusive, SliceFamily::P) => 0,
+            (SliceExclusive::NonExclusive, SliceFamily::B) => 1,
+            (SliceExclusive::NonExclusive, SliceFamily::I) => 2,
+            (SliceExclusive::NonExclusive, SliceFamily::SP) => 3,
+            (SliceExclusive::NonExclusive, SliceFamily::SI) => 4,
+            (SliceExclusive::Exclusive, SliceFamily::P) => 5,
+            (SliceExclusive::Exclusive, SliceFamily::B) => 6,
+            (SliceExclusive::Exclusive, SliceFamily::I) => 7,
+            (SliceExclusive::Exclusive, SliceFamily::SP) => 8,
+            (SliceExclusive::Exclusive, SliceFamily::SI) => 9,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -113,7 +127,7 @@ impl From<ColourPlaneError> for SliceHeaderError {
 }
 
 #[derive(Debug)]
-enum ColourPlane {
+pub enum ColourPlane {
     /// Indicates the _chroma_ colour plane
     Y,
     /// Indicates the _blue-difference_ colour plane
@@ -132,6 +146,14 @@ impl ColourPlane {
             1 => Ok(ColourPlane::Cb),
             2 => Ok(ColourPlane::Cr),
             _ => Err(ColourPlaneError::InvalidId(id)),
+        }
+    }
+
+    pub fn id(&self) -> u8 {
+        match self {
+            ColourPlane::Y => 0,
+            ColourPlane::Cb => 1,
+            ColourPlane::Cr => 2,
         }
     }
 }
@@ -159,7 +181,7 @@ pub enum PicOrderCountLsb {
 }
 
 #[derive(Debug)]
-enum NumRefIdxActive {
+pub enum NumRefIdxActive {
     P {
         num_ref_idx_l0_active_minus1: u32,
     },
@@ -183,13 +205,13 @@ impl NumRefIdxActive {
 }
 
 #[derive(Debug)]
-enum ModificationOfPicNums {
+pub enum ModificationOfPicNums {
     Subtract(u32),
     Add(u32),
     LongTermRef(u32),
 }
 #[derive(Debug)]
-enum RefPicListModifications {
+pub enum RefPicListModifications {
     I,
     P {
         ref_pic_list_modification_l0: Vec<ModificationOfPicNums>,
@@ -243,12 +265,12 @@ impl RefPicListModifications {
 }
 
 #[derive(Debug)]
-struct PredWeight {
+pub struct PredWeight {
     weight: i32,
     offset: i32,
 }
 #[derive(Debug)]
-struct PredWeightTable {
+pub struct PredWeightTable {
     luma_log2_weight_denom: u32,
     chroma_log2_weight_denom: Option<u32>,
     luma_weights: Vec<Option<PredWeight>>,
@@ -416,24 +438,26 @@ impl DecRefPicMarking {
 
 #[derive(Debug)]
 pub struct SliceHeader {
-    first_mb_in_slice: u32,
-    slice_type: SliceType,
-    colour_plane: Option<ColourPlane>,
+    pub first_mb_in_slice: u32,
+    pub slice_type: SliceType,
+    pub colour_plane: Option<ColourPlane>,
     pub frame_num: u16,
     pub field_pic: FieldPic,
     idr_pic_id: Option<u32>,
     pub pic_order_cnt_lsb: Option<PicOrderCountLsb>,
     redundant_pic_cnt: Option<u32>,
-    direct_spatial_mv_pred_flag: Option<bool>,
-    num_ref_idx_active: Option<NumRefIdxActive>,
-    ref_pic_list_modification: Option<RefPicListModifications>, // may become an enum rather than Option in future (for ref_pic_list_mvc_modification)
-    pred_weight_table: Option<PredWeightTable>,
+    pub direct_spatial_mv_pred_flag: Option<bool>,
+    pub num_ref_idx_active: Option<NumRefIdxActive>,
+    pub ref_pic_list_modification: Option<RefPicListModifications>, // may become an enum rather than Option in future (for ref_pic_list_mvc_modification)
+    pub pred_weight_table: Option<PredWeightTable>,
     dec_ref_pic_marking: Option<DecRefPicMarking>,
-    cabac_init_idc: Option<u32>,
-    slice_qp_delta: i32,
+    pub cabac_init_idc: Option<u32>,
+    pub slice_qp_delta: i32,
     sp_for_switch_flag: Option<bool>,
     slice_qs: Option<u32>,
-    disable_deblocking_filter_idc: u8,
+    pub disable_deblocking_filter_idc: u8,
+    pub slice_alpha_c0_offset_div2: Option<i32>,
+    pub slice_beta_offset_div2: Option<i32>,
 }
 impl SliceHeader {
     pub fn from_bits<'a, R: BitRead>(
@@ -608,6 +632,8 @@ impl SliceHeader {
                 None
             };
         let mut disable_deblocking_filter_idc = 0;
+        let mut slice_alpha_c0_offset_div2 = None;
+        let mut slice_beta_offset_div2 = None;
         if pps.deblocking_filter_control_present_flag {
             disable_deblocking_filter_idc = {
                 let v = r.read_ue("disable_deblocking_filter_idc")?;
@@ -617,13 +643,14 @@ impl SliceHeader {
                 v as u8
             };
             if disable_deblocking_filter_idc != 1 {
-                let slice_alpha_c0_offset_div2 = r.read_se("slice_alpha_c0_offset_div2")?;
-                if slice_alpha_c0_offset_div2 < -6 || 6 < slice_alpha_c0_offset_div2 {
+                let extracted_slice_alpha_c0_offset_div2 = r.read_se("slice_alpha_c0_offset_div2")?;
+                if extracted_slice_alpha_c0_offset_div2 < -6 || 6 < extracted_slice_alpha_c0_offset_div2 {
                     return Err(SliceHeaderError::InvalidSliceAlphaC0OffsetDiv2(
-                        slice_alpha_c0_offset_div2,
+                        extracted_slice_alpha_c0_offset_div2,
                     ));
                 }
-                let _slice_beta_offset_div2 = r.read_se("slice_beta_offset_div2")?;
+                slice_alpha_c0_offset_div2 = Some(extracted_slice_alpha_c0_offset_div2);
+                slice_beta_offset_div2 = Some(r.read_se("slice_beta_offset_div2")?);
             }
         }
         if !r.has_more_rbsp_data("slice_header")? {
@@ -654,6 +681,8 @@ impl SliceHeader {
             sp_for_switch_flag,
             slice_qs,
             disable_deblocking_filter_idc,
+            slice_alpha_c0_offset_div2,
+            slice_beta_offset_div2,
         };
         Ok((header, sps, pps))
     }
