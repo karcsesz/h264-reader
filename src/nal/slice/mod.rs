@@ -87,6 +87,16 @@ impl SliceType {
             (SliceExclusive::Exclusive, SliceFamily::SI) => 9,
         }
     }
+
+    pub fn family_id(&self) -> u8 {
+        match self.family {
+            SliceFamily::P => 0,
+            SliceFamily::B => 1,
+            SliceFamily::I => 2,
+            SliceFamily::SP => 3,
+            SliceFamily::SI => 4,
+        }
+    }
 }
 
 #[derive(Debug)]
