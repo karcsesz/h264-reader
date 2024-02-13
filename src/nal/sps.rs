@@ -316,7 +316,8 @@ impl From<BitReaderError> for ScalingMatrixError {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SeqScalingMatrix {
-    // TODO
+    scaling_list_4x4: Vec<ScalingList>,
+    scaling_list_8x8: Vec<ScalingList>,
 }
 
 impl SeqScalingMatrix {
@@ -324,21 +325,24 @@ impl SeqScalingMatrix {
         r: &mut R,
         chroma_format_idc: u32,
     ) -> Result<SeqScalingMatrix, ScalingMatrixError> {
-        let mut scaling_list4x4 = vec![];
-        let mut scaling_list8x8 = vec![];
+        let mut scaling_list_4x4 = vec![];
+        let mut scaling_list_8x8 = vec![];
 
         let count = if chroma_format_idc == 3 { 12 } else { 8 };
         for i in 0..count {
             let seq_scaling_list_present_flag = r.read_bool("seq_scaling_list_present_flag")?;
             if seq_scaling_list_present_flag {
                 if i < 6 {
-                    scaling_list4x4.push(ScalingList::read(r, 16)?);
+                    scaling_list_4x4.push(ScalingList::read(r, 16)?);
                 } else {
-                    scaling_list8x8.push(ScalingList::read(r, 64)?);
+                    scaling_list_8x8.push(ScalingList::read(r, 64)?);
                 }
             }
         }
-        Ok(SeqScalingMatrix {})
+        Ok(SeqScalingMatrix {
+            scaling_list_4x4,
+            scaling_list_8x8,
+        })
     }
 }
 
