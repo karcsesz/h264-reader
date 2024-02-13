@@ -338,7 +338,7 @@ impl PredWeightTable {
 }
 
 #[derive(Debug)]
-enum MemoryManagementControlOperation {
+pub enum MemoryManagementControlOperation {
     /// `memory_management_control_operation` value of `1`
     ShortTermUnusedForRef { difference_of_pic_nums_minus1: u32 },
     /// `memory_management_control_operation` value of `2`
@@ -358,7 +358,7 @@ enum MemoryManagementControlOperation {
 
 /// Decoded reference picture marking
 #[derive(Debug)]
-enum DecRefPicMarking {
+pub enum DecRefPicMarking {
     Idr {
         no_output_of_prior_pics_flag: bool,
         long_term_reference_flag: bool,
@@ -450,7 +450,7 @@ pub struct SliceHeader {
     pub num_ref_idx_active: Option<NumRefIdxActive>,
     pub ref_pic_list_modification: Option<RefPicListModifications>, // may become an enum rather than Option in future (for ref_pic_list_mvc_modification)
     pub pred_weight_table: Option<PredWeightTable>,
-    dec_ref_pic_marking: Option<DecRefPicMarking>,
+    pub dec_ref_pic_marking: Option<DecRefPicMarking>,
     pub cabac_init_idc: Option<u32>,
     pub slice_qp_delta: i32,
     sp_for_switch_flag: Option<bool>,
