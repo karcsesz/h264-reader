@@ -270,7 +270,7 @@ impl From<ProfileIdc> for u8 {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ScalingList {
     scaling_list: Vec<i32>
 }
