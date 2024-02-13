@@ -236,6 +236,16 @@ impl ChromaFormat {
             _ => ChromaFormat::Invalid(chroma_format_idc),
         }
     }
+
+    pub fn idc(&self) -> u32 {
+        match self {
+            ChromaFormat::Monochrome => 0,
+            ChromaFormat::YUV420 => 1,
+            ChromaFormat::YUV422 => 2,
+            ChromaFormat::YUV444 => 3,
+            ChromaFormat::Invalid(value) => *value,
+        }
+    }
 }
 
 // _Profile Indication_ value
