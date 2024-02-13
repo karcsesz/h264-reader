@@ -270,8 +270,9 @@ impl From<ProfileIdc> for u8 {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct ScalingList {
-    // TODO
+    scaling_list: Vec<i32>
 }
 impl ScalingList {
     pub fn read<R: BitRead>(r: &mut R, size: u8) -> Result<ScalingList, ScalingMatrixError> {
@@ -296,7 +297,7 @@ impl ScalingList {
             scaling_list.push(new_value);
             last_scale = new_value;
         }
-        Ok(ScalingList {})
+        Ok(ScalingList {scaling_list})
     }
 }
 
