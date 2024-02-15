@@ -272,14 +272,15 @@ impl From<ProfileIdc> for u8 {
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ScalingList {
-    scaling_list: Vec<i32>
+    pub scaling_list: Vec<i32>,
+    pub use_default_scaling_matrix_flag: bool,
 }
 impl ScalingList {
     pub fn read<R: BitRead>(r: &mut R, size: u8) -> Result<ScalingList, ScalingMatrixError> {
         let mut scaling_list = vec![];
         let mut last_scale = 8;
         let mut next_scale = 8;
-        let mut _use_default_scaling_matrix_flag = false;
+        let mut use_default_scaling_matrix_flag = false;
         for j in 0..size {
             if next_scale != 0 {
                 let delta_scale = r.read_se("delta_scale")?;
@@ -287,7 +288,7 @@ impl ScalingList {
                     return Err(ScalingMatrixError::DeltaScaleOutOfRange(delta_scale));
                 }
                 next_scale = (last_scale + delta_scale + 256) % 256;
-                _use_default_scaling_matrix_flag = j == 0 && next_scale == 0;
+                use_default_scaling_matrix_flag = j == 0 && next_scale == 0;
             }
             let new_value = if next_scale == 0 {
                 last_scale
@@ -316,8 +317,8 @@ impl From<BitReaderError> for ScalingMatrixError {
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SeqScalingMatrix {
-    scaling_list_4x4: Vec<ScalingList>,
-    scaling_list_8x8: Vec<ScalingList>,
+    pub scaling_list_4x4: Vec<ScalingList>,
+    pub scaling_list_8x8: Vec<ScalingList>,
 }
 
 impl SeqScalingMatrix {
