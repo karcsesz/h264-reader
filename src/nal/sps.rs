@@ -298,7 +298,7 @@ impl ScalingList {
             scaling_list.push(new_value);
             last_scale = new_value;
         }
-        Ok(ScalingList {scaling_list})
+        Ok(ScalingList {scaling_list, use_default_scaling_matrix_flag})
     }
 }
 

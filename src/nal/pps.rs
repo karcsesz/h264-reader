@@ -142,8 +142,8 @@ impl SliceGroup {
 
 #[derive(Debug, Clone)]
 pub struct PicScalingMatrix {
-    scaling_list_4x4: Vec<ScalingList>,
-    scaling_list_8x8: Vec<ScalingList>,
+    pub scaling_list_4x4: Vec<ScalingList>,
+    pub scaling_list_8x8: Vec<ScalingList>,
 }
 impl PicScalingMatrix {
     fn read<R: BitRead>(
