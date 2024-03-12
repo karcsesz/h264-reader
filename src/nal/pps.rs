@@ -1,4 +1,5 @@
 use super::sps;
+use crate::nal::sps::{SeqParamSetId, SeqParamSetIdError};
 use crate::rbsp::BitRead;
 use crate::{rbsp, Context};
 use crate::nal::sps::ScalingList;
@@ -10,9 +11,9 @@ pub enum PpsError {
     InvalidNumSliceGroupsMinus1(u32),
     InvalidNumRefIdx(&'static str, u32),
     InvalidSliceGroupChangeType(u32),
-    UnknownSeqParamSetId(ParamSetId),
-    BadPicParamSetId(ParamSetIdError),
-    BadSeqParamSetId(ParamSetIdError),
+    UnknownSeqParamSetId(SeqParamSetId),
+    BadPicParamSetId(PicParamSetIdError),
+    BadSeqParamSetId(SeqParamSetIdError),
     ScalingMatrix(sps::ScalingMatrixError),
 }
 
@@ -131,9 +132,9 @@ impl SliceGroup {
     ) -> Result<Vec<u32>, PpsError> {
         let pic_size_in_map_units_minus1 = r.read_ue("pic_size_in_map_units_minus1")?;
         // TODO: avoid any panics due to failed conversions
-        let size = ((1f64 + f64::from(pic_size_in_map_units_minus1)).log2()) as u32;
+        let size = (1f64 + f64::from(num_slice_groups_minus1)).log2().ceil() as u32;
         let mut run_length_minus1 = Vec::with_capacity(num_slice_groups_minus1 as usize + 1);
-        for _ in 0..num_slice_groups_minus1 + 1 {
+        for _ in 0..pic_size_in_map_units_minus1 + 1 {
             run_length_minus1.push(r.read_u32(size, "slice_group_id")?);
         }
         Ok(run_length_minus1)
@@ -209,18 +210,18 @@ impl PicParameterSetExtra {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum ParamSetIdError {
+pub enum PicParamSetIdError {
     IdTooLarge(u32),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ParamSetId(u8);
-impl ParamSetId {
-    pub fn from_u32(id: u32) -> Result<ParamSetId, ParamSetIdError> {
-        if id > 31 {
-            Err(ParamSetIdError::IdTooLarge(id))
+pub struct PicParamSetId(u8);
+impl PicParamSetId {
+    pub fn from_u32(id: u32) -> Result<PicParamSetId, PicParamSetIdError> {
+        if id > 255 {
+            Err(PicParamSetIdError::IdTooLarge(id))
         } else {
-            Ok(ParamSetId(id as u8))
+            Ok(PicParamSetId(id as u8))
         }
     }
     pub fn id(self) -> u8 {
@@ -230,8 +231,8 @@ impl ParamSetId {
 
 #[derive(Clone, Debug)]
 pub struct PicParameterSet {
-    pub pic_parameter_set_id: ParamSetId,
-    pub seq_parameter_set_id: ParamSetId,
+    pub pic_parameter_set_id: PicParamSetId,
+    pub seq_parameter_set_id: SeqParamSetId,
     pub entropy_coding_mode_flag: bool,
     pub bottom_field_pic_order_in_frame_present_flag: bool,
     pub slice_groups: Option<SliceGroup>,
@@ -249,9 +250,9 @@ pub struct PicParameterSet {
 }
 impl PicParameterSet {
     pub fn from_bits<R: BitRead>(ctx: &Context, mut r: R) -> Result<PicParameterSet, PpsError> {
-        let pic_parameter_set_id = ParamSetId::from_u32(r.read_ue("pic_parameter_set_id")?)
+        let pic_parameter_set_id = PicParamSetId::from_u32(r.read_ue("pic_parameter_set_id")?)
             .map_err(PpsError::BadPicParamSetId)?;
-        let seq_parameter_set_id = ParamSetId::from_u32(r.read_ue("seq_parameter_set_id")?)
+        let seq_parameter_set_id = SeqParamSetId::from_u32(r.read_ue("seq_parameter_set_id")?)
             .map_err(PpsError::BadSeqParamSetId)?;
         let seq_parameter_set = ctx
             .sps_by_id(seq_parameter_set_id)
@@ -365,5 +366,21 @@ mod test {
                 ..
             })
         ));
+    }
+
+    // Earlier versions of h264-reader incorrectly limited pic_parameter_set_id to at most 32,
+    // while the spec allows up to 255.  Test that a value over 32 is accepted.
+    #[test]
+    fn pps_id_greater32() {
+        // test SPS/PPS values courtesy of @astraw
+        let sps = hex!("42c01643235010020b3cf00f08846a");
+        let pps = hex!("0448e3c8");
+        let sps = sps::SeqParameterSet::from_bits(rbsp::BitReader::new(&sps[..])).unwrap();
+        let mut ctx = Context::default();
+        ctx.put_seq_param_set(sps);
+
+        let pps = PicParameterSet::from_bits(&ctx, rbsp::BitReader::new(&pps[..])).unwrap();
+
+        assert_eq!(pps.pic_parameter_set_id, PicParamSetId(33));
     }
 }

@@ -11,7 +11,7 @@ repository = "https://github.com/dholroyd/h264-reader"
 edition = "2018"
 
 [dependencies]
-bitstream-io = "1.1"
+bitstream-io = "2.2"
 hex-slice = "0.1.4"
 memchr = "2.1.1"
 rfc6381-codec = "0.1"
@@ -21,10 +21,16 @@ log = "0.4"
 hex-literal = "0.4.1"
 criterion = "0.5"
 test-case = "3.0.0"
+iai-callgrind = "0.10.2"
 
 [[bench]]
 name = "bench"
 harness = false
+
+[[bench]]
+name = "ci_bench"
+harness = false
+
 
 [profile.bench]
 # for profiling,

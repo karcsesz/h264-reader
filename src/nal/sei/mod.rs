@@ -3,7 +3,9 @@ pub mod pic_timing;
 pub mod user_data_registered_itu_t_t35;
 
 use crate::rbsp::BitReaderError;
+use hex_slice::AsHex;
 use std::convert::TryFrom;
+use std::fmt::{Debug, Formatter};
 use std::io::BufRead;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -203,10 +205,19 @@ impl<'a, R: BufRead + Clone> SeiReader<'a, R> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(PartialEq, Eq)]
 pub struct SeiMessage<'a> {
     pub payload_type: HeaderType,
     pub payload: &'a [u8],
+}
+
+impl<'a> Debug for SeiMessage<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SeiMessage")
+            .field("payload_type", &self.payload_type)
+            .field("payload", &format!("{:02x}", self.payload.plain_hex(false)))
+            .finish()
+    }
 }
 
 /// Reads a u32 in the special `sei_message` format used for payload type and size.
